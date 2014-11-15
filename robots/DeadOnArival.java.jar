@@ -2,6 +2,8 @@ package gvsu;
 import robocode.*;
 import java.awt.Color;
 import robocode.util.Utils;
+import static robocode.util.Utils.normalRelativeAngleDegrees;
+
 // API help : http://robocode.sourceforge.net/docs/robocode/robocode/Robot.html
 
 /**
@@ -12,6 +14,10 @@ public class DeadOnArival extends Robot
 	int turnDirection = 1; // Clockwise or counterclockwise
 	boolean peek; // Don't turn if there's a robot there
 	double moveAmount; // How much to move
+	int others; // Number of other robots in the game
+	static int corner = 0; // Which corner we are currently using
+	// static so that it keeps it between rounds.
+	boolean stopWhenSeeRobot = false; // See goCorner()
 	/**
 	 * run: DeadOnArival's default behavior
 	 */
@@ -33,15 +39,19 @@ public class DeadOnArival extends Robot
 		// Initialize peek to false
 		peek = false;
 
-		// turnLeft to face a wall.
+		// turnRight to face a wall.
 		// getHeading() % 90 means the remainder of
 		// getHeading() divided by 90.
-		turnLeft(getHeading() % 90);
+		turnRight(getHeading() % 90);
 		ahead(moveAmount);
 		// Turn the gun to turn right 90 degrees.
 		peek = true;
 		turnGunRight(90);
 		turnRight(90);
+		
+			// Save # of other bots
+		others = getOthers();
+
 		while (true) {
 			// Look before we turn when ahead() completes.
 			peek = true;
@@ -60,8 +70,21 @@ public class DeadOnArival extends Robot
 	public void onScannedRobot(ScannedRobotEvent e) {
 		double absoluteBearing = getHeading() + e.getBearing();
 		double bearingFromGun = Utils.normalRelativeAngleDegrees(absoluteBearing - getGunHeading());
-
-		// If it's close enough, fire!
+		
+		if (stopWhenSeeRobot) {
+			// Stop everything!  You can safely call stop multiple times.
+			stop();
+			// Call our custom firing method
+			smartFire(e.getDistance());
+			// Look for another robot.
+			// NOTE:  If you call scan() inside onScannedRobot, and it sees a robot,
+			// the game will interrupt the event handler and start it over
+			scan();
+			// We won't get here if we saw another robot.
+			// Okay, we didn't see another robot... start moving or turning again.
+			resume();
+		} else {
+				// If it's close enough, fire!
 		if (Math.abs(bearingFromGun) <= 3) {
 			turnGunRight(bearingFromGun);
 			// We check gun heat here, because calling fire()
@@ -85,17 +108,27 @@ public class DeadOnArival extends Robot
 		// By calling it manually here, we make sure we generate another scan event if there's a robot on the next
 		// wall, so that we do not start moving up it until it's gone.
 		if (peek) {
-			scan();
+				scan();
+			}
 		}
+	
 	}
 
-
+	public void smartFire(double robotDistance) {
+		if (robotDistance > 200 || getEnergy() < 15) {
+			fire(1);
+		} else if (robotDistance > 50) {
+			fire(2);
+		} else {
+			fire(3);
+		}
+	}
 	/**
 	 * onHitByBullet: What to do when you're hit by a bullet
 	 */
 	public void onHitByBullet(HitByBulletEvent e) {
 		// Replace the next line with any behavior you would like
-		back(10);
+		back(20);
 	}
 	
 	/**
@@ -104,6 +137,7 @@ public class DeadOnArival extends Robot
 	public void onHitWall(HitWallEvent e) {
 		// Replace the next line with any behavior you would like
 		back(20);
+		scan();
 	}	
 	
 	public void onHitRobot(HitRobotEvent e) {
@@ -114,5 +148,13 @@ public class DeadOnArival extends Robot
 		else {
 			ahead(100);
 		}
+		
+		if (e.getBearing() > -10 && e.getBearing() < 10) {
+			fire(1);
+		}
+		if (e.isMyFault()) {
+			turnRight(10);
+		}
 	}
+	
 }
