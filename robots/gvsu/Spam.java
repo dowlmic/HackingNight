@@ -90,6 +90,6 @@ public class Spam extends AdvancedRobot {
 		} else if (e.getEnergy() > .4) {
 			fire(.1);
 		}
-		//ahead(40); // Ram him again!
+		ahead(40); // Ram him again!
 	}
 }
